@@ -149,6 +149,177 @@ Identificador: `57a980ee06f9`
 
 ---
 
+## E1-B — Criterios explícitos del supervisor
+
+### 1.1 Objetivo
+
+Evaluar si definir explícitamente los criterios de clasificación del supervisor permite distinguir mejor entre incumplimientos obligatorios, omisiones corregibles y decisiones que requieren intervención humana.
+
+Se utiliza el escenario E1 para comparar el comportamiento del supervisor con la configuración original y con instrucciones modificadas, manteniendo los mismos datos y restricciones del simulador.
+
+### 1.2 Configuración
+
+Se modificaron únicamente las instrucciones del supervisor, incorporando definiciones explícitas para los tres dictámenes posibles:
+
+- `conforme_para_revision_humana`: propuesta que cumple las restricciones obligatorias y cuenta con evidencia suficiente para revisión humana, aunque existan limitaciones no bloqueantes.
+- `requiere_correccion`: errores, inconsistencias u omisiones corregibles con los datos y reglas autorizados.
+- `escalar`: ambigüedades de negocio, conflictos de autoridad o decisiones que requieren una definición humana antes de continuar.
+
+Adicionalmente, se indicó al supervisor que no debe considerar obligatorio utilizar todo el inventario disponible ni convertir preferencias de negocio en restricciones obligatorias.
+
+No se modificaron las instrucciones de los otros cuatro agentes, los datos, las herramientas ni la lógica del simulador.
+
+| Parámetro | Valor |
+|---|---|
+| Escenario | E1 |
+| Criterio | `cobertura_equilibrada` |
+| Versión de datos | `datos_1.0` |
+| Versión del motor | `capstone_base_1.5` |
+| Horizonte | 3 días |
+| Inventario del centro | 160 unidades |
+| Consultas realizadas | 6 |
+| Tokens de entrada | 5,275 |
+| Tokens de salida | 2,635 |
+| Resultado final | `propuesta_para_revision_humana` |
+
+**Pregunta original:**
+
+¿Cómo afecta la definición explícita de criterios de clasificación al dictamen y la justificación del supervisor?
+
+**Predicción original:**
+
+El supervisor distinguirá mejor entre incumplimientos, omisiones corregibles y decisiones que requieren autoridad humana.
+
+**Cambio declarado:**
+
+Únicamente las instrucciones del supervisor.
+
+### 1.3 Análisis del experimento
+
+#### Comparación de las propuestas
+
+En ambas ejecuciones, el orquestador propuso distribuir 125 unidades entre las tres tiendas, conservando 35 unidades en el centro de distribución.
+
+| Tienda | E1 - Configuración original | E1-B - Supervisor modificado |
+|---|---:|---:|
+| T01 - Centro | 60 | 60 |
+| T02 - Norte | 40 | 40 |
+| T03 - Sur | 25 | 25 |
+| **Total enviado** | **125** | **125** |
+| **Inventario remanente** | **35** | **35** |
+
+Las dos propuestas permiten alcanzar una cobertura estimada del 100 % de la demanda durante el horizonte de tres días.
+
+Aunque las instrucciones del orquestador no cambiaron, su explicación en la segunda ejecución señaló explícitamente que las 35 unidades restantes no se distribuyen porque hacerlo excedería las necesidades registradas.
+
+Las validaciones deterministas de Python fueron satisfactorias en ambos intentos.
+
+#### Comportamiento de los especialistas y del orquestador
+
+**Inventario:** identificó nuevamente una necesidad total de 125 unidades, distribuida en 60 para T01, 40 para T02 y 25 para T03.
+
+**Logística:** volvió a proponer una distribución orientativa de 54, 53 y 53 unidades para utilizar las 160 disponibles en el centro. La propuesta excede las necesidades estimadas de T02 y T03, así como la capacidad máxima de envío de T03.
+
+Esta observación resulta relevante porque el agente de Logística dispone de información sobre el inventario central y las capacidades, pero no necesariamente de las necesidades calculadas por Inventario. Por ello, exceder necesidades puede explicarse por información parcial, mientras que exceder la capacidad de T03 representa una inconsistencia respecto a los datos que sí tiene disponibles.
+
+**Comercial:** mantuvo el orden de atención T02, T01 y T03, siguiendo las prioridades de servicio. La interpretación operacional de `cobertura_equilibrada` continuó sin estar definida.
+
+**Orquestador:** propuso nuevamente una distribución ajustada a las necesidades de las tiendas. No incorporó la distribución orientativa de Logística y justificó la existencia de inventario remanente.
+
+La distribución final permaneció sin cambios, aunque las respuestas de los agentes presentaron diferencias de redacción y argumentación respecto a E1.
+
+#### Comparación de los dictámenes del supervisor
+
+| Elemento | E1 - Original | E1-B - Modificado |
+|---|---|---|
+| Validaciones Python | Conformes | Conformes |
+| Dictamen del supervisor | `requiere_correccion` | `conforme_para_revision_humana` |
+| Inventario remanente | Considerado un pendiente que requería corrección | Reconocido como permitido por las restricciones |
+| Criterio de distribución | Falta de definición considerada motivo de corrección | Limitación pendiente de confirmación |
+| Revisión humana | No se presentó como conforme | Propuesta disponible para revisión humana |
+
+En la ejecución original, el supervisor consideró que la falta de definición del inventario remanente y del criterio `cobertura_equilibrada` impedía aceptar la propuesta para revisión humana.
+
+En la segunda ejecución, el supervisor reconoció que:
+
+- Las cantidades propuestas cumplen las restricciones programadas.
+- Las 35 unidades sin asignar no representan un incumplimiento.
+- La cobertura estimada de las tres tiendas es del 100 %.
+- La definición operacional del criterio y las restricciones logísticas no modeladas siguen pendientes de confirmación.
+- Estas limitaciones no impiden presentar la propuesta para revisión humana bajo las condiciones del escenario.
+
+**Interpretación preliminar del equipo:**
+
+El cambio observado sugiere que las instrucciones explícitas ayudaron al supervisor a distinguir entre restricciones obligatorias y asuntos pendientes de negocio.
+
+El nuevo dictamen resulta más coherente con las validaciones del programa y con el alcance de una propuesta sujeta a revisión humana.
+
+Sin embargo, no puede afirmarse que el cambio se deba exclusivamente a las instrucciones modificadas, ya que se ejecutó nuevamente todo el flujo y las respuestas de los demás agentes también presentaron variaciones.
+
+#### Consumo de tokens
+
+| Métrica | E1 - Original | E1-B - Modificado |
+|---|---:|---:|
+| Tokens de entrada | 4,982 | 5,275 |
+| Tokens de salida | 2,440 | 2,635 |
+| **Total** | **7,422** | **7,910** |
+| Consultas | 6 | 6 |
+
+La segunda ejecución consumió 488 tokens adicionales, aproximadamente un 6.6 % más que la primera.
+
+Este incremento corresponde a las ejecuciones observadas y no permite establecer todavía un costo promedio ni afirmar que las instrucciones modificadas siempre incrementarán el consumo.
+
+### 1.4 Hallazgos y limitaciones
+
+| ID | Hallazgo | Tipo | Implicación |
+|---|---|---|---|
+| H-E1B-01 | El supervisor cambió su dictamen de `requiere_correccion` a `conforme_para_revision_humana`. | Comportamiento del agente | Las instrucciones explícitas pueden contribuir a una clasificación más alineada con los criterios propuestos. |
+| H-E1B-02 | El supervisor distinguió el cumplimiento de restricciones de las limitaciones pendientes de validación. | Comportamiento satisfactorio | Conservar la distinción como parte de los criterios de supervisión propuestos. |
+| H-E1B-03 | La distribución integrada fue idéntica en ambas ejecuciones. | Resultado de comparación | El cambio de dictamen no estuvo acompañado de un cambio cuantitativo en el plan. |
+| H-E1B-04 | Logística volvió a proponer una asignación que supera límites de capacidad y necesidad. | Comportamiento del agente | Revisar si su responsabilidad debe limitarse a identificar restricciones, sin proponer cantidades de distribución. |
+| H-E1B-05 | La interpretación operacional de los criterios de distribución continúa pendiente. | Ambigüedad de especificación | Mantener la necesidad de definir y validar las políticas de negocio. |
+| H-E1B-06 | El consumo total aumentó un 6.6 % respecto a la primera ejecución. | Observación de consumo | Considerar el costo de las instrucciones adicionales, sin generalizar el resultado. |
+
+**Limitaciones de la comparación:**
+
+- Se realizó una ejecución por configuración, por lo que no se evaluó la estabilidad del comportamiento.
+- Aunque solo se modificaron las instrucciones del supervisor, todo el flujo se ejecutó nuevamente y las respuestas de otros agentes variaron.
+- No se establecieron todavía definiciones operacionales para `cobertura_equilibrada` y `prioridad_servicio`.
+- El escenario E1 no permite evaluar conflictos reales entre prioridades cuando el inventario es insuficiente.
+- El cambio en el dictamen no demuestra que el supervisor clasifique correctamente otros escenarios, especialmente aquellos con incumplimientos o riesgos.
+- El resultado `conforme_para_revision_humana` no constituye una autorización para ejecutar movimientos de inventario.
+
+### 1.5 Conclusión del experimento
+
+La segunda ejecución mantuvo la misma distribución y las validaciones deterministas conformes de E1, pero produjo un dictamen diferente del supervisor.
+
+Con las instrucciones modificadas, el supervisor distinguió entre el cumplimiento de las restricciones obligatorias y los aspectos pendientes de confirmación por el negocio. Esto permitió clasificar la propuesta como `conforme_para_revision_humana`, conservando las observaciones sobre las políticas no definidas y las limitaciones del escenario.
+
+El resultado respalda de manera preliminar la hipótesis de que establecer criterios explícitos mejora la justificación y clasificación de las propuestas. Sin embargo, una comparación de dos ejecuciones independientes no permite demostrar que el comportamiento será consistente ni atribuir todas las diferencias exclusivamente al cambio realizado.
+
+Se propone conservar provisionalmente las nuevas instrucciones del supervisor para los siguientes experimentos, sujetas a evaluación en escenarios de escasez y riesgo.
+
+Adicionalmente, se mantiene como hallazgo pendiente la tendencia de Logística a proponer distribuciones cuantitativas que exceden algunas restricciones. Antes de modificar sus instrucciones, conviene observar su comportamiento en escenarios con inventario insuficiente.
+
+### 1.6 Referencia de ejecución
+
+**Referencia inicial:**
+
+[E1_intento_001_57a980ee06f9](./historial/intento_001_57a980ee06f9.json)
+
+**Ejecución con supervisor modificado:**
+
+[E1B_intento_002_d4950f7838a6](./historial/intento_002_d4950f7838a6.json)
+
+Identificador: `d4950f7838a6`
+
+**Decisiones relacionadas:** DD-02 — Criterios de clasificación del supervisor.
+
+**Hallazgos anteriores relacionados:** H-E1-05 y H-E1-07.
+
+
+---
+
 # 2. Decisiones de diseño
 
 Esta sección registra las decisiones identificadas durante el análisis y ejecución del prototipo.
@@ -226,7 +397,7 @@ Las reglas explícitas permitirían reducir diferencias de interpretación y eva
 
 ## DD-02 — Criterios de clasificación del supervisor
 
-**Estado:** 🟡 Propuesta / 🔵 Pendiente de validación externa
+**Estado:** ✅ Adoptada provisionalmente para experimentación / 🔵 Pendiente de validación externa
 
 **Hallazgos de origen:** H-E1-05, H-E1-07
 
@@ -297,6 +468,7 @@ Esta tabla reúne los resultados principales. El detalle y la evidencia se conse
 | Experimento | Pregunta / hipótesis | Cambio realizado | Evidencia observada | Resultado | Conclusión y límites |
 |---|---|---|---|---|---|
 | **E1 — Referencia inicial** | Comprender el comportamiento con inventario suficiente. Predicción: no se requerirá reposición. | Ninguno. Configuración original. | Necesidad 125; envío 125; remanente 35; cobertura 100 %; Python conforme; supervisor `requiere_correccion`. | La predicción no se cumplió. Se identificaron discrepancias entre especialistas y ambigüedades en criterios de negocio y supervisión. | Se obtuvo una propuesta numéricamente factible. No se ha comprobado la estabilidad del comportamiento ni la interpretación de criterios bajo escasez. |
+| E1-B — Criterios del supervisor | ¿Definir criterios explícitos permite distinguir mejor entre incumplimientos, omisiones corregibles y decisiones pendientes de autoridad humana? | Se modificaron únicamente las instrucciones del supervisor. Se conservaron los datos, el escenario E1 y la configuración de los demás agentes | Mismo reparto 60/40/25; cobertura 100 %; Python conforme. El supervisor reconoció que las 35 unidades remanentes no incumplen restricciones y mantuvo las limitaciones pendientes. | El dictamen cambió de requiere_correccion a conforme_para_revision_humana, sin modificar la distribución final. | La hipótesis recibió apoyo preliminar: el supervisor distinguió mejor entre restricciones y asuntos pendientes. No se demuestra consistencia general ni causalidad exclusiva, ya que se ejecutó nuevamente todo el flujo y solo hay una corrida por configuración. |
 
 ---
 
