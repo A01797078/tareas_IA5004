@@ -461,6 +461,360 @@ Confirmar si la política del negocio exige una regla adicional para gestionar i
 
 ---
 
+## E2 — Escasez con cobertura equilibrada
+
+### 1.1 Objetivo
+
+Evaluar cómo distribuyen los agentes el inventario disponible cuando este resulta insuficiente para cubrir las necesidades de las tres tiendas, utilizando el criterio `cobertura_equilibrada`.
+
+Se busca observar cómo interpretan este criterio sin una definición operacional explícita, cómo coordinan sus recomendaciones y si la propuesta resultante cumple las restricciones y es consistente con el objetivo de equilibrar la cobertura de demanda.
+
+### 1.2 Configuración
+
+Se utilizó el escenario E2 con las instrucciones originales de los especialistas y del orquestador, conservando las modificaciones realizadas previamente a los criterios de clasificación del supervisor (DD-02).
+
+No se modificaron los datos, herramientas ni lógica del simulador.
+
+| Parámetro | Valor |
+|---|---|
+| Escenario | E2 |
+| Criterio | `cobertura_equilibrada` |
+| Versión de datos | `datos_1.0` |
+| Versión del motor | `capstone_base_1.5` |
+| Horizonte | 3 días |
+| Inventario del centro | 90 unidades |
+| Necesidad total | 125 unidades |
+| Consultas realizadas | 6 |
+| Tokens de entrada | 5,159 |
+| Tokens de salida | 2,702 |
+| Resultado final | `requiere_correccion` |
+
+**Pregunta original:**
+
+¿Cómo distribuyen los agentes el inventario disponible cuando no es suficiente para cubrir las necesidades de las tres tiendas, utilizando el criterio `cobertura_equilibrada`?
+
+**Predicción original:**
+
+Se espera que los agentes identifiquen la escasez de inventario y propongan una distribución que busque equilibrar la cobertura entre las tres tiendas, respetando las restricciones de capacidad y necesidad. Debido a que el criterio no tiene una definición operacional explícita, es posible que los agentes utilicen también las prioridades de servicio para justificar la asignación, generando diferencias de interpretación entre especialistas.
+
+**Cambio declarado:**
+
+Cambio de escenario E1 a E2 (escasez con `cobertura_equilibrada`). Se conservan las instrucciones modificadas del supervisor.
+
+### 1.3 Análisis del experimento
+
+#### Interpretación del escenario
+
+El escenario E2 conserva las necesidades de reposición de E1, pero reduce el inventario del centro de 160 a 90 unidades.
+
+Las necesidades estimadas de las tiendas suman 125 unidades, por lo que existe un faltante de 35 unidades que debe distribuirse entre las tiendas según el criterio seleccionado.
+
+Esto introduce un conflicto de asignación que no existía en E1: ya no es posible cubrir completamente la demanda de las tres tiendas.
+
+#### Necesidades y distribución
+
+| Tienda | Existencias | Demanda estimada | Necesidad | Capacidad de envío | Envío propuesto |
+|---|---:|---:|---:|---:|---:|
+| T01 - Centro | 15 | 75 | 60 | 70 | 43 |
+| T02 - Norte | 20 | 60 | 40 | 60 | 29 |
+| T03 - Sur | 20 | 45 | 25 | 50 | 18 |
+| **Total** | **55** | **180** | **125** | **180** | **90** |
+
+El orquestador propuso distribuir las 90 unidades disponibles, respetando las capacidades y necesidades de las tres tiendas.
+
+En su justificación indicó que la propuesta alcanzaba coberturas de aproximadamente 71.7 %, 72.5 % y 72.0 %. Sin embargo, estos porcentajes corresponden a la proporción de la necesidad de reposición atendida, no a la cobertura de demanda.
+
+La cobertura de demanda debe considerar las existencias iniciales de cada tienda:
+
+`Cobertura = (Existencias + Envío) / Demanda estimada`
+
+| Tienda | Reposición atendida | Cobertura de demanda |
+|---|---:|---:|
+| T01 - Centro | 71.7 % | 77.3 % |
+| T02 - Norte | 72.5 % | 81.7 % |
+| T03 - Sur | 72.0 % | 84.4 % |
+| **Global** | **72.0 %** | **80.6 %** |
+
+La distribución presenta una diferencia de aproximadamente 7.1 puntos porcentuales entre las tiendas con mayor y menor cobertura.
+
+Aunque la propuesta distribuye proporcionalmente las necesidades de reposición, no equilibra en la misma proporción la cobertura de demanda.
+
+#### Comportamiento de los especialistas
+
+**Inventario:** identificó correctamente las necesidades de reposición, con un total de 125 unidades. Señaló que T01 concentra el mayor faltante.
+
+**Logística:** identificó las 90 unidades disponibles y las capacidades máximas por tienda. A diferencia de E1, no propuso una distribución cuantitativa específica. Reconoció que el criterio de cobertura equilibrada no incluía una fórmula de asignación.
+
+**Comercial:** recomendó atender primero T02, después T01 y finalmente T03, siguiendo sus prioridades de servicio. Esta recomendación mantiene la ambigüedad sobre cómo deben relacionarse las prioridades comerciales con el criterio activo de cobertura equilibrada.
+
+**Orquestador:** propuso distribuir las unidades proporcionalmente a las necesidades de reposición, sin utilizar la prioridad comercial como factor principal.
+
+La propuesta respetó las restricciones programadas, pero su justificación confundió la cobertura de demanda con la proporción de reposición atendida.
+
+#### Validaciones y supervisión
+
+Las comprobaciones deterministas de Python fueron satisfactorias:
+
+- Se incluyeron las tres tiendas sin duplicados.
+- Las cantidades fueron enteras y no negativas.
+- Las 90 unidades enviadas no excedieron el inventario del centro.
+- Ningún envío superó la capacidad o necesidad estimada de su tienda.
+
+`comprobaciones.conforme = true`
+
+Sin embargo, el supervisor emitió `requiere_correccion`.
+
+Su principal observación fue que el orquestador justificó el equilibrio utilizando porcentajes de reposición atendida en lugar de cobertura de demanda.
+
+El supervisor identificó correctamente esta diferencia conceptual, pero sus propios cálculos también fueron incorrectos: reportó coberturas de 57.3 %, 48.3 % y 40.0 %, cuando los valores correctos son 77.3 %, 81.7 % y 84.4 %.
+
+Los porcentajes reportados por el supervisor corresponden a los envíos divididos entre la demanda estimada, sin incluir las existencias iniciales.
+
+**Interpretación preliminar del equipo:**
+
+El resultado demuestra que las validaciones numéricas implementadas pueden confirmar la factibilidad de una distribución sin verificar que las métricas utilizadas para justificarla sean correctas.
+
+El supervisor detectó una inconsistencia real, pero cometió otro error al intentar fundamentarla.
+
+La ausencia de una definición operacional completa de `cobertura_equilibrada` dificulta establecer si la distribución obtenida corresponde al criterio deseado por el negocio.
+
+### 1.4 Hallazgos y limitaciones
+
+| ID | Hallazgo | Tipo | Implicación |
+|---|---|---|---|
+| H-E2-01 | El orquestador distribuyó las unidades proporcionalmente a las necesidades de reposición. | Interpretación del criterio | El reparto no demuestra que se haya aplicado equilibrio de cobertura de demanda. |
+| H-E2-02 | El orquestador confundió la proporción de reposición atendida con cobertura de demanda. | Error de interpretación de métricas | Definir explícitamente ambas métricas y su uso. |
+| H-E2-03 | El supervisor identificó la confusión, pero calculó incorrectamente las coberturas. | Error de evaluación | Evaluar la necesidad de verificar los cálculos mediante código. |
+| H-E2-04 | Python consideró conforme una propuesta cuya justificación contenía errores. | Límite de los controles | Las validaciones actuales comprueban restricciones, pero no todos los cálculos de las explicaciones. |
+| H-E2-05 | Comercial continuó recomendando un orden basado en prioridad de servicio. | Ambigüedad de especificación | Definir cómo interactúan las prioridades cuando el criterio activo es cobertura equilibrada. |
+| H-E2-06 | Logística no propuso cantidades específicas y reconoció la falta de una fórmula de distribución. | Comportamiento del agente | Observar si limitar su responsabilidad a identificar restricciones resulta más adecuado. |
+
+**Limitaciones de la ejecución:**
+
+- Solo se realizó una ejecución de E2.
+- No existe una definición operacional confirmada de `cobertura_equilibrada`.
+- No se puede establecer que la distribución propuesta sea óptima para el negocio.
+- Las validaciones de Python no comprueban directamente los porcentajes utilizados en las justificaciones de los agentes.
+- El supervisor también puede cometer errores numéricos.
+- No se evaluó la estabilidad de las respuestas ante ejecuciones independientes.
+- El escenario utiliza datos sintéticos y no incorpora restricciones adicionales de transporte o almacenamiento.
+
+### 1.5 Conclusión del experimento
+
+La ejecución E2 permitió observar cómo los agentes enfrentan una situación de escasez bajo el criterio `cobertura_equilibrada`.
+
+El orquestador produjo una distribución factible que utiliza las 90 unidades disponibles sin incumplir las restricciones programadas. Sin embargo, interpretó el equilibrio como una distribución proporcional de las necesidades de reposición y utilizó esos porcentajes para justificar la cobertura.
+
+El supervisor identificó la diferencia entre ambas métricas y solicitó una corrección, aunque sus propios cálculos de cobertura también fueron incorrectos.
+
+La predicción se cumplió parcialmente: los agentes identificaron la escasez y buscaron distribuir el inventario de manera equilibrada, pero no aplicaron una definición verificable de cobertura de demanda.
+
+Este resultado respalda la necesidad de definir operacionalmente los criterios de distribución y considerar mecanismos de verificación para los cálculos utilizados en las justificaciones.
+
+No se propone modificar todavía el simulador. Los hallazgos se conservarán para comparar el comportamiento con E3 y posteriormente evaluar instrucciones más explícitas.
+
+### 1.6 Referencia de ejecución
+
+[E2_intento_003_a81d9ba3110b](./historial/intento_003_a81d9ba3110b.json)
+
+Identificador: `a81d9ba3110b`
+
+**Decisiones relacionadas:** DD-01 — Definición operacional de criterios de asignación.
+
+---
+
+## E3 — Escasez con prioridad de servicio
+
+### 1.1 Objetivo
+
+Evaluar cómo cambia la distribución de inventario respecto a E2 cuando se conservan las mismas necesidades, existencias, capacidades e inventario disponible, pero se utiliza el criterio `prioridad_servicio`.
+
+Se busca observar si los agentes interpretan este criterio como un orden de atención, cómo resuelven la escasez y qué consecuencias tiene la distribución para las tiendas de menor prioridad.
+
+### 1.2 Configuración
+
+Se utilizó el escenario E3, que conserva los datos y restricciones de E2, pero cambia el criterio activo a `prioridad_servicio`.
+
+Se mantuvieron las instrucciones originales de los especialistas y del orquestador, así como las modificaciones de supervisión adoptadas provisionalmente en DD-02.
+
+No se modificaron herramientas ni lógica del simulador.
+
+| Parámetro | Valor |
+|---|---|
+| Escenario | E3 |
+| Criterio | `prioridad_servicio` |
+| Versión de datos | `datos_1.0` |
+| Versión del motor | `capstone_base_1.5` |
+| Horizonte | 3 días |
+| Inventario del centro | 90 unidades |
+| Necesidad total | 125 unidades |
+| Consultas realizadas | 6 |
+| Tokens de entrada | 5,233 |
+| Tokens de salida | 2,191 |
+| Resultado final | `propuesta_para_revision_humana` |
+
+**Pregunta original:**
+
+¿Cómo cambia la propuesta de distribución respecto a E2 cuando se conserva la misma información, pero se utiliza el criterio `prioridad_servicio`?
+
+**Predicción original:**
+
+Se espera que los agentes favorezcan la asignación de inventario a las tiendas según su prioridad de servicio: primero T02, después T01 y finalmente T03. Debido a la disponibilidad limitada, es posible que las tiendas de menor prioridad reciban una proporción menor de su necesidad, particularmente T03. Sin embargo, al no existir una definición operacional explícita del criterio, la distribución dependerá de cómo los agentes interpreten la prioridad y su relación con la cobertura.
+
+**Cambio declarado:**
+
+Cambio de criterio de `cobertura_equilibrada` a `prioridad_servicio` respecto a E2, manteniendo los mismos datos y las instrucciones de los agentes.
+
+### 1.3 Análisis del experimento
+
+#### Interpretación del escenario
+
+E3 utiliza las mismas condiciones de escasez de E2: 90 unidades disponibles en el centro frente a una necesidad total de 125 unidades.
+
+La diferencia es que el criterio activo cambia a `prioridad_servicio`, donde las tiendas tienen las siguientes prioridades:
+
+- T02 - Norte: prioridad 1.
+- T01 - Centro: prioridad 2.
+- T03 - Sur: prioridad 3.
+
+El simulador establece que el valor 1 representa la prioridad más alta, pero no define un algoritmo obligatorio para convertir esos valores en cantidades de distribución.
+
+#### Necesidades y distribución
+
+| Tienda | Prioridad | Necesidad | Envío E2 | Envío E3 | Necesidad pendiente E3 |
+|---|---:|---:|---:|---:|---:|
+| T01 - Centro | 2 | 60 | 43 | 50 | 10 |
+| T02 - Norte | 1 | 40 | 29 | 40 | 0 |
+| T03 - Sur | 3 | 25 | 18 | 0 | 25 |
+| **Total** | | **125** | **90** | **90** | **35** |
+
+El orquestador propuso atender las tiendas de manera secuencial según su prioridad:
+
+1. Asignar 40 unidades a T02 para cubrir completamente su necesidad.
+2. Asignar las 50 unidades restantes a T01, cubriendo parcialmente su necesidad.
+3. Dejar T03 sin reposición debido al agotamiento del inventario central.
+
+Esta distribución utiliza las 90 unidades disponibles y respeta las restricciones programadas.
+
+#### Comparación de cobertura entre E2 y E3
+
+| Tienda | Cobertura E2 | Cobertura E3 | Diferencia |
+|---|---:|---:|---:|
+| T01 - Centro | 77.3 % | 86.7 % | +9.3 pp |
+| T02 - Norte | 81.7 % | 100 % | +18.3 pp |
+| T03 - Sur | 84.4 % | 44.4 % | -40.0 pp |
+| **Cobertura global** | **80.6 %** | **80.6 %** | **0 pp** |
+| **Cobertura mínima** | **77.3 %** | **44.4 %** | **-32.9 pp** |
+
+Ambas propuestas alcanzan la misma cobertura global, porque utilizan las mismas 90 unidades y parten de las mismas existencias.
+
+Sin embargo, distribuyen de manera diferente el faltante.
+
+E2 mantiene una cobertura superior al 77 % en las tres tiendas, mientras que E3 garantiza el 100 % de cobertura a T02, favorece a T01 y deja a T03 con una cobertura del 44.4 %, correspondiente únicamente a sus existencias iniciales.
+
+La comparación demuestra que una misma cobertura global puede ocultar diferencias importantes en la atención individual de las tiendas.
+
+#### Comportamiento de los especialistas
+
+**Inventario:** identificó correctamente las necesidades de las tres tiendas, aunque indicó que no contaba con un identificador de producto, pese a que el caso incluye P01. Esta observación debe analizarse considerando el contexto específico proporcionado al agente.
+
+**Logística:** identificó las restricciones de inventario y capacidad sin proponer cantidades específicas. Señaló que no disponía de las prioridades necesarias para determinar una distribución final.
+
+**Comercial:** identificó correctamente el orden de atención T02, T01 y T03, y recomendó favorecer las tiendas de acuerdo con sus valores de prioridad.
+
+**Orquestador:** integró las recomendaciones y resolvió explícitamente la diferencia entre la información disponible para Logística y Comercial. Utilizó las prioridades informadas por este último para proponer una distribución secuencial.
+
+En esta ejecución, el criterio `prioridad_servicio` produjo una interpretación más directa entre los agentes, especialmente Comercial y Orquestador.
+
+#### Validaciones y supervisión
+
+Las comprobaciones deterministas de Python fueron satisfactorias:
+
+- Se incluyeron las tres tiendas sin duplicados.
+- Las cantidades fueron enteras y no negativas.
+- El total enviado fue de 90 unidades, sin superar el inventario del centro.
+- Ninguna tienda recibió más unidades de las que necesitaba o podía recibir.
+
+`comprobaciones.conforme = true`
+
+El supervisor emitió `conforme_para_revision_humana`.
+
+En su revisión confirmó que la propuesta respetaba el orden de prioridad, las cantidades permitidas y las validaciones de Python.
+
+También identificó que el orquestador había dejado pendiente repetir una comprobación que ya se encontraba ejecutada y conforme, por lo que consideró redundante esa observación.
+
+Mantuvo como pendientes la aprobación humana y la revisión de restricciones de transporte no modeladas.
+
+**Interpretación preliminar del equipo:**
+
+El resultado coincide con la predicción: los agentes favorecieron a las tiendas de mayor prioridad y T03 quedó sin reposición.
+
+No obstante, que el reparto sea consistente con el orden de prioridades no demuestra que esta sea la interpretación operacional que requiere el negocio.
+
+El criterio sigue siendo flexible y podría admitir otras distribuciones que favorezcan a T02 sin dejar completamente sin reposición a T03.
+
+#### Comparación de consumo con E2
+
+| Métrica | E2 | E3 |
+|---|---:|---:|
+| Tokens de entrada | 5,159 | 5,233 |
+| Tokens de salida | 2,702 | 2,191 |
+| **Total** | **7,861** | **7,424** |
+| Consultas | 6 | 6 |
+
+E3 consumió 437 tokens menos que E2, aproximadamente un 5.6 % menos.
+
+Esta diferencia corresponde únicamente a las ejecuciones observadas y no permite concluir que `prioridad_servicio` tenga un menor costo de operación.
+
+### 1.4 Hallazgos y limitaciones
+
+| ID | Hallazgo | Tipo | Implicación |
+|---|---|---|---|
+| H-E3-01 | El orquestador distribuyó el inventario secuencialmente según las prioridades. | Interpretación del criterio | Existe una interpretación operativa observable de `prioridad_servicio`, pero requiere confirmación del negocio. |
+| H-E3-02 | T03 no recibió unidades adicionales y quedó con una cobertura del 44.4 %. | Consecuencia de negocio | Evaluar si resulta aceptable concentrar el faltante en tiendas de menor prioridad. |
+| H-E3-03 | E2 y E3 alcanzaron la misma cobertura global, pero con diferencias importantes entre tiendas. | Resultado comparativo | La cobertura global no es suficiente para evaluar la conveniencia de una distribución. |
+| H-E3-04 | El orquestador integró las prioridades comerciales que Logística no tenía disponibles. | Comportamiento satisfactorio | Conservar como evidencia de coordinación entre especialistas. |
+| H-E3-05 | Python y el supervisor consideraron conforme la propuesta. | Comportamiento satisfactorio | La propuesta puede presentarse para revisión humana bajo las restricciones modeladas. |
+| H-E3-06 | El escenario activa `prioridad_servicio`, mientras que la política conserva `cobertura_equilibrada` en `criterio_prioridad`. | Diferencia de configuración | Confirmar la precedencia entre el criterio activo del escenario y el valor predeterminado de la política. |
+
+**Limitaciones de la ejecución:**
+
+- Se realizó una sola ejecución de E3.
+- El criterio `prioridad_servicio` no cuenta con una definición operacional completa validada por el negocio.
+- El reparto secuencial es una interpretación del agente, no una política empresarial confirmada.
+- No se evaluaron alternativas que favorezcan las prioridades manteniendo una cobertura mínima para todas las tiendas.
+- Las diferencias entre E2 y E3 son compatibles con el cambio de criterio, pero la variabilidad del modelo impide atribuirlas exclusivamente a este sin pruebas adicionales.
+- La propuesta es factible según las restricciones programadas, pero no se ha demostrado que sea la mejor alternativa comercial.
+- No se ejecutaron movimientos reales de inventario.
+
+### 1.5 Conclusión del experimento
+
+La ejecución E3 mostró que los agentes interpretaron `prioridad_servicio` como un orden secuencial de atención, asignando primero las unidades necesarias para cubrir T02, después el inventario restante a T01 y dejando T03 sin reposición.
+
+La distribución cumplió las restricciones programadas y el supervisor emitió `conforme_para_revision_humana`.
+
+La predicción se cumplió en esta ejecución, ya que las tiendas de mayor prioridad recibieron mayor atención y la tienda de menor prioridad absorbió la mayor parte del faltante.
+
+La comparación con E2 muestra que ambos criterios produjeron propuestas distintas con la misma cobertura global, pero consecuencias diferentes para cada tienda.
+
+Aunque `prioridad_servicio` resultó más sencillo de interpretar para los agentes, todavía se requiere confirmar si el negocio espera una asignación secuencial o una distribución ponderada que considere también niveles mínimos de cobertura.
+
+Se propone conservar este resultado como referencia para evaluar posteriormente definiciones operacionales explícitas de ambos criterios, sin modificar todavía la lógica del simulador.
+
+### 1.6 Referencia de ejecución
+
+[E3_intento_004_9750fd8fd220](./historial/intento_004_9750fd8fd220.json)
+
+Identificador: `9750fd8fd220`
+
+**Comparación principal:**
+
+[E2_intento_003_a81d9ba3110b](./historial/intento_003_a81d9ba3110b.json)
+
+**Decisiones relacionadas:** DD-01 — Definición operacional de criterios de asignación.
+
+---
+
 # 3. Resumen de experimentos
 
 Esta tabla reúne los resultados principales. El detalle y la evidencia se conservan en cada sección de experimento.
@@ -468,7 +822,9 @@ Esta tabla reúne los resultados principales. El detalle y la evidencia se conse
 | Experimento | Pregunta / hipótesis | Cambio realizado | Evidencia observada | Resultado | Conclusión y límites |
 |---|---|---|---|---|---|
 | **E1 — Referencia inicial** | Comprender el comportamiento con inventario suficiente. Predicción: no se requerirá reposición. | Ninguno. Configuración original. | Necesidad 125; envío 125; remanente 35; cobertura 100 %; Python conforme; supervisor `requiere_correccion`. | La predicción no se cumplió. Se identificaron discrepancias entre especialistas y ambigüedades en criterios de negocio y supervisión. | Se obtuvo una propuesta numéricamente factible. No se ha comprobado la estabilidad del comportamiento ni la interpretación de criterios bajo escasez. |
-| E1-B — Criterios del supervisor | ¿Definir criterios explícitos permite distinguir mejor entre incumplimientos, omisiones corregibles y decisiones pendientes de autoridad humana? | Se modificaron únicamente las instrucciones del supervisor. Se conservaron los datos, el escenario E1 y la configuración de los demás agentes | Mismo reparto 60/40/25; cobertura 100 %; Python conforme. El supervisor reconoció que las 35 unidades remanentes no incumplen restricciones y mantuvo las limitaciones pendientes. | El dictamen cambió de requiere_correccion a conforme_para_revision_humana, sin modificar la distribución final. | La hipótesis recibió apoyo preliminar: el supervisor distinguió mejor entre restricciones y asuntos pendientes. No se demuestra consistencia general ni causalidad exclusiva, ya que se ejecutó nuevamente todo el flujo y solo hay una corrida por configuración. |
+| **E1-B — Criterios del supervisor** | ¿Definir criterios explícitos permite distinguir mejor entre incumplimientos, omisiones corregibles y decisiones pendientes de autoridad humana? | Se modificaron únicamente las instrucciones del supervisor. Se conservaron los datos, el escenario E1 y la configuración de los demás agentes | Mismo reparto 60/40/25; cobertura 100 %; Python conforme. El supervisor reconoció que las 35 unidades remanentes no incumplen restricciones y mantuvo las limitaciones pendientes. | El dictamen cambió de requiere_correccion a conforme_para_revision_humana, sin modificar la distribución final. | La hipótesis recibió apoyo preliminar: el supervisor distinguió mejor entre restricciones y asuntos pendientes. No se demuestra consistencia general ni causalidad exclusiva, ya que se ejecutó nuevamente todo el flujo y solo hay una corrida por configuración. |
+| **E2 — Escasez con cobertura equilibrada** | ¿Cómo distribuyen los agentes el inventario insuficiente utilizando cobertura_equilibrada? Se espera que intenten equilibrar coberturas, aunque podrían incorporar prioridades de servicio. | Escenario E2, con 90 unidades disponibles. Se conservaron las instrucciones originales de los especialistas y los criterios modificados del supervisor. | Reparto 43/29/18; cobertura global 80.6 %; Python conforme. El orquestador confundió reposición atendida con cobertura de demanda y el supervisor también calculó incorrectamente las coberturas. | requiere_correccion. El reparto es factible, pero su justificación no acredita correctamente el criterio seleccionado. | Los agentes identificaron la escasez y propusieron una distribución proporcional de reposición, no un equilibrio verificable de cobertura. Falta definir el criterio y validar los cálculos; solo se realizó una ejecución. |
+| **E3 — Escasez con prioridad de servicio** | ¿Cómo cambia la distribución respecto a E2 con prioridad_servicio? Se espera favorecer T02, T01 y T03, posiblemente dejando a la última con menor reposición. | Cambio de criterio a prioridad_servicio, manteniendo los datos, restricciones e instrucciones utilizadas en E2. | Reparto 50/40/0; cobertura global 80.6 %; cobertura mínima 44.4 %; Python conforme. Se atendió primero T02 y después T01. | propuesta_para_revision_humana. El supervisor consideró conforme la distribución secuencial según prioridades. | La predicción se cumplió en esta ejecución. E2 y E3 muestran igual cobertura global, pero diferentes consecuencias por tienda. La interpretación secuencial requiere validación del negocio y no se ha comprobado estabilidad. |
 
 ---
 
